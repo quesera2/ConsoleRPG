@@ -1,8 +1,9 @@
 pub struct App {
     player: Player,
-    enemy: Vec<Enemy>,
-    scene: WindowScene,
-    finish_flag: bool,
+    enemies: Vec<Enemy>,
+    battle_state: BattleState,
+    // 終了フラグ
+    should_quit: bool,
 }
 
 struct Status {
@@ -22,7 +23,7 @@ struct Enemy {
     status: Status,
 }
 
-enum WindowScene {
+enum BattleState {
     // コマンド選択
     CommandSelect,
 }
