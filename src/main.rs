@@ -1,3 +1,5 @@
+mod app;
+
 use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Color, Style};
