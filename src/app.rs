@@ -6,21 +6,64 @@ pub struct App {
     should_quit: bool,
 }
 
-struct Status {
-    hit_point: i32,
-    max_hit_point: i32,
-    magic_point: i32,
-    max_magic_point: i32,
+impl Default for App {
+    fn default() -> Self {
+        let enemies = (0..3)
+            .map(|n| {
+                let suffix = char::from_u32(u32::from('Ａ') + n)
+                    .expect("'Ａ'に0〜2を足した値は全角英字（Ａ〜Ｃ）なので有効な想定です");
+                Enemy {
+                    name: format!("スライム{suffix}"),
+                    vitals: Vitals {
+                        hit_point: Pool::max(15),
+                        magic_point: Pool::max(0),
+                    },
+                }
+            })
+            .collect();
+
+        Self {
+            player: Player {
+                name: "ゆうしゃ".to_string(),
+                vitals: Vitals {
+                    hit_point: Pool::max(30),
+                    magic_point: Pool::max(10),
+                },
+            },
+            enemies,
+            battle_state: BattleState::CommandSelect,
+            should_quit: false,
+        }
+    }
+}
+
+struct Pool {
+    current: i32,
+    max: i32,
+}
+
+impl Pool {
+    fn max(value: i32) -> Self {
+        Self {
+            current: value,
+            max: value,
+        }
+    }
+}
+
+struct Vitals {
+    hit_point: Pool,
+    magic_point: Pool,
 }
 
 struct Player {
     name: String,
-    status: Status,
+    vitals: Vitals,
 }
 
 struct Enemy {
     name: String,
-    status: Status,
+    vitals: Vitals,
 }
 
 enum BattleState {
