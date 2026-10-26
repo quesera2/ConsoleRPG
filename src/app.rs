@@ -21,8 +21,8 @@ impl Default for App {
                 Enemy {
                     name: format!("スライム{suffix}"),
                     vitals: Vitals {
-                        hit_point: Pool::full(15),
-                        magic_point: Pool::full(0),
+                        hp: Pool::full(15),
+                        mp: Pool::full(0),
                     },
                 }
             })
@@ -32,8 +32,8 @@ impl Default for App {
             player: Player {
                 name: "ゆうしゃ".to_string(),
                 vitals: Vitals {
-                    hit_point: Pool::full(30),
-                    magic_point: Pool::full(10),
+                    hp: Pool::full(30),
+                    mp: Pool::full(10),
                 },
             },
             enemies,
@@ -88,8 +88,8 @@ impl Pool {
 }
 
 struct Vitals {
-    hit_point: Pool,
-    magic_point: Pool,
+    hp: Pool,
+    mp: Pool,
 }
 
 struct Player {

@@ -1,6 +1,6 @@
-use super::App;
+use super::{App, Command};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, LineGauge, Paragraph, Widget};
@@ -34,9 +34,9 @@ impl Widget for &App {
 
 impl App {
     fn render_status(&self, area: Rect, buf: &mut Buffer) {
-        let name = Line::from("ゆうしゃ");
-        let hp = Line::from("HP: 30");
-        let mp = Line::from("MP: 10");
+        let name = Line::from(self.player.name.to_string());
+        let hp = Line::from(format!("HP: {hp}", hp = self.player.vitals.hp.current));
+        let mp = Line::from(format!("MP: {mp}", mp = self.player.vitals.mp.current));
 
         let content_width = [&name, &hp, &mp]
             .into_iter()
@@ -80,11 +80,12 @@ impl App {
     }
 
     fn render_command(&self, area: Rect, buf: &mut Buffer) {
-        let commands = vec![
-            Line::from("> たたかう"),
-            Line::from("  じゅもん"),
-            Line::from("  にげる"),
-        ];
+        let commands: Vec<Line> = Command::ALL
+            .iter()
+            .map(|c| format!("  {display_name}", display_name = c.display_name()))
+            .map(Line::from)
+            .collect();
+
         let content_width = commands.iter().map(Line::width).max().unwrap_or(0);
         let command_width = u16::try_from(content_width + 2).unwrap_or(u16::MAX);
 
@@ -95,21 +96,32 @@ impl App {
         ])
         .areas(area);
 
-        Paragraph::new(commands)
-            .block(Block::bordered().title("コマンド"))
-            .render(command_area, buf);
+        let command_list = Block::bordered().title("コマンド");
+        let command_inner = command_list.inner(command_area);
+
+        command_list.render(command_area, buf);
+        Paragraph::new(commands).render(command_inner, buf);
+        let position = Margin {
+            horizontal: 0,
+            vertical: 0,
+        };
+        Line::from("▶︎").render(command_inner.inner(position), buf);
 
         let enemy_list_area = Rect {
             height: 3,
             ..enemy_list_area
         };
         let enemy_list = Block::bordered();
-        let inner = enemy_list.inner(enemy_list_area);
+        let enemy_inner = enemy_list.inner(enemy_list_area);
 
         enemy_list.render(enemy_list_area, buf);
 
         // 同じ行に左寄せと右寄せで重ねて描く
-        Line::from("　スライム").left_aligned().render(inner, buf);
-        Line::from("ー　３ひき").right_aligned().render(inner, buf);
+        Line::from("　スライム")
+            .left_aligned()
+            .render(enemy_inner, buf);
+        Line::from("ー　３ひき")
+            .right_aligned()
+            .render(enemy_inner, buf);
     }
 }
