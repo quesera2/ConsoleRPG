@@ -1,6 +1,8 @@
+mod enemies;
 mod ui;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use enemies::{Enemy, EnemyType};
 use ratatui::DefaultTerminal;
 use std::io;
 
@@ -14,18 +16,9 @@ pub struct App {
 
 impl Default for App {
     fn default() -> Self {
+        // 同じ種族が3体なので、全員に識別番号を振る
         let enemies = (0..3)
-            .map(|n| {
-                let suffix = char::from_u32(u32::from('Ａ') + n)
-                    .expect("'Ａ'に0〜2を足した値は全角英字（Ａ〜Ｃ）なので有効な想定です");
-                Enemy {
-                    name: format!("スライム{suffix}"),
-                    vitals: Vitals {
-                        hp: Pool::full(15),
-                        mp: Pool::full(0),
-                    },
-                }
-            })
+            .map(|n| Enemy::new(EnemyType::Slime, Some(n)))
             .collect();
 
         Self {
@@ -93,11 +86,6 @@ struct Vitals {
 }
 
 struct Player {
-    name: String,
-    vitals: Vitals,
-}
-
-struct Enemy {
     name: String,
     vitals: Vitals,
 }
