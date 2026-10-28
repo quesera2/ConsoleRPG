@@ -109,11 +109,11 @@ impl App {
 
         command_list.render(command_area, buf);
         Paragraph::new(commands).render(command_inner, buf);
-        if let Some(cursor_position) = command_inner
+        if let Some(cursor_row) = command_inner
             .rows()
             .nth(self.cursor_position.command_position)
         {
-            Line::from("▶").render(cursor_position, buf)
+            Line::from("▶").render(cursor_row, buf)
         }
 
         let mut groups: Vec<(EnemyType, u16)> = Vec::new();
