@@ -1,7 +1,9 @@
-use super::{App, Command};
-use crate::app::enemies::{Enemy, EnemyType};
+use super::{
+    App, Command,
+    enemies::{Enemy, EnemyType},
+};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
+use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Color, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, LineGauge, Paragraph, Widget};
@@ -107,11 +109,12 @@ impl App {
 
         command_list.render(command_area, buf);
         Paragraph::new(commands).render(command_inner, buf);
-        let position = Margin {
-            horizontal: 0,
-            vertical: 0,
-        };
-        Line::from("▶").render(command_inner.inner(position), buf);
+        if let Some(cursor_position) = command_inner
+            .rows()
+            .nth(self.cursor_position.command_position)
+        {
+            Line::from("▶").render(cursor_position, buf)
+        }
 
         let mut groups: Vec<(EnemyType, u16)> = Vec::new();
         for enemy in &self.enemies {
