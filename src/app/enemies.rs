@@ -94,7 +94,7 @@ impl Enemy {
         }
     }
 
-    pub(super) fn art(&self) -> &EnemyArt {
+    pub(super) fn art(&self) -> &'static EnemyArt {
         &self.enemy_type.data().art
     }
 }
