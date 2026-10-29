@@ -144,7 +144,7 @@ impl App {
                 .chars()
                 .map(|c| char::from_u32(u32::from(c) + diff).expect("０〜９の範囲に必ず収まる"))
                 .collect::<String>();
-            Line::from(format!("ー　{count}ひき"))
+            Line::from(format!("ー　{count}ひき "))
                 .right_aligned()
                 .render(row, buf);
         }
