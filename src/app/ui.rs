@@ -1,5 +1,5 @@
 use super::{
-    App, Command,
+    App, BattleState, Command,
     enemies::{Enemy, EnemyType},
 };
 use ratatui::buffer::Buffer;
@@ -109,9 +109,13 @@ impl App {
 
         command_list.render(command_area, buf);
         Paragraph::new(commands).render(command_inner, buf);
-        if let Some(cursor_row) = command_inner
-            .rows()
-            .nth(self.cursor_position.command_position)
+        let is_cursor_visible = match &self.battle_state {
+            BattleState::CommandSelect { blink_timer } => blink_timer.is_on(),
+        };
+        if is_cursor_visible
+            && let Some(cursor_row) = command_inner
+                .rows()
+                .nth(self.cursor_position.command_position)
         {
             Line::from("▶").render(cursor_row, buf)
         }

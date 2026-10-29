@@ -1,10 +1,16 @@
 mod enemies;
 mod ui;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{self, KeyCode, KeyEvent, KeyModifiers};
 use enemies::{Enemy, EnemyType};
 use ratatui::DefaultTerminal;
 use std::io;
+use std::time::{Duration, Instant};
+
+const TICK_RATE: u64 = 30;
+const TICK_INTERVAL: Duration = Duration::from_millis(1000 / TICK_RATE);
+
+const BLINK_PERIOD: u128 = 666;
 
 pub struct App {
     player: Player,
@@ -31,7 +37,9 @@ impl Default for App {
                 },
             },
             enemies,
-            battle_state: BattleState::CommandSelect,
+            battle_state: BattleState::CommandSelect {
+                blink_timer: BlinkTimer::start(),
+            },
             should_quit: false,
             cursor_position: CursorPosition::default(),
         }
@@ -54,8 +62,12 @@ impl App {
     }
 
     fn handle_events() -> io::Result<Option<Input>> {
-        let event = crossterm::event::read()?;
-        Ok(event.as_key_press_event().and_then(Input::from_key_event))
+        if event::poll(TICK_INTERVAL)? {
+            let event = event::read()?;
+            Ok(event.as_key_press_event().and_then(Input::from_key_event))
+        } else {
+            Ok(None)
+        }
     }
 
     fn handle_input(&mut self, input: Option<Input>) {
@@ -63,12 +75,13 @@ impl App {
         match input {
             Input::System(SystemInput::Quit) => self.should_quit = true,
             Input::Game(game_input) => match self.battle_state {
-                BattleState::CommandSelect => self.handle_command_select_input(game_input),
+                BattleState::CommandSelect { .. } => self.handle_command_select_input(game_input),
             },
         }
     }
 
     fn handle_command_select_input(&mut self, input: GameInput) {
+        let previous_cursor_position = self.cursor_position.command_position;
         match input {
             GameInput::Up => {
                 self.cursor_position.command_position =
@@ -78,8 +91,12 @@ impl App {
                 self.cursor_position.command_position =
                     (self.cursor_position.command_position + 1).min(Command::ALL.len() - 1)
             }
-
             GameInput::Left | GameInput::Right | GameInput::Confirm | GameInput::Cancel => {}
+        }
+        if previous_cursor_position != self.cursor_position.command_position {
+            self.battle_state = BattleState::CommandSelect {
+                blink_timer: BlinkTimer::start(),
+            };
         }
     }
 }
@@ -107,7 +124,7 @@ struct Player {
 
 enum BattleState {
     // コマンド選択
-    CommandSelect,
+    CommandSelect { blink_timer: BlinkTimer },
 }
 
 enum Command {
@@ -172,6 +189,22 @@ struct CursorPosition {
     command_position: usize,
 }
 
+struct BlinkTimer {
+    started_at: Instant,
+}
+
+impl BlinkTimer {
+    fn start() -> Self {
+        Self {
+            started_at: Instant::now(),
+        }
+    }
+
+    fn is_on(&self) -> bool {
+        self.started_at.elapsed().as_millis() % BLINK_PERIOD < BLINK_PERIOD / 2
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -187,7 +220,10 @@ mod tests {
     #[test]
     fn ctrl_c_maps_to_quit() {
         let key = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
-        assert_eq!(Input::from_key_event(key), Some(Input::System(SystemInput::Quit)));
+        assert_eq!(
+            Input::from_key_event(key),
+            Some(Input::System(SystemInput::Quit))
+        );
     }
 
     #[test]
