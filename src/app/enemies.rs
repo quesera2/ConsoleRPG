@@ -68,6 +68,11 @@ pub(super) struct Enemy {
     pub(super) vitals: Vitals,
 }
 
+pub(super) struct EnemyGroup {
+    pub(super) enemy_type: EnemyType,
+    pub(super) count: u16,
+}
+
 impl Enemy {
     pub(super) fn new(enemy_type: EnemyType, suffix: Option<u8>) -> Self {
         let data = enemy_type.data();

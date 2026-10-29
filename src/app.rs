@@ -2,7 +2,7 @@ mod enemies;
 mod ui;
 
 use crossterm::event::{self, KeyCode, KeyEvent, KeyModifiers};
-use enemies::{Enemy, EnemyType};
+use enemies::{Enemy, EnemyGroup, EnemyType};
 use ratatui::DefaultTerminal;
 use std::io;
 use std::time::{Duration, Instant};
@@ -61,6 +61,24 @@ impl App {
         Ok(())
     }
 
+    fn enemy_groups(&self) -> Vec<EnemyGroup> {
+        let mut groups: Vec<EnemyGroup> = Vec::new();
+        //TODO: 敵の生存フラグを追加したら生存している場合のみ加算するように修正
+        for enemy in &self.enemies {
+            match groups
+                .iter_mut()
+                .find(|group| group.enemy_type == enemy.enemy_type)
+            {
+                Some(group) => group.count += 1,
+                None => groups.push(EnemyGroup {
+                    enemy_type: enemy.enemy_type,
+                    count: 1,
+                }),
+            }
+        }
+        groups
+    }
+
     fn handle_events() -> io::Result<Option<Input>> {
         if event::poll(TICK_INTERVAL)? {
             let event = event::read()?;
@@ -76,6 +94,7 @@ impl App {
             Input::System(SystemInput::Quit) => self.should_quit = true,
             Input::Game(game_input) => match self.battle_state {
                 BattleState::CommandSelect { .. } => self.handle_command_select_input(game_input),
+                BattleState::AttackEnemySelect { .. } => self.handle_enemy_select_input(game_input),
             },
         }
     }
@@ -91,10 +110,57 @@ impl App {
                 self.cursor_position.command_position =
                     (self.cursor_position.command_position + 1).min(Command::ALL.len() - 1)
             }
-            GameInput::Left | GameInput::Right | GameInput::Confirm | GameInput::Cancel => {}
+            GameInput::Confirm => {
+                let Some(current_command) = Command::ALL.get(self.cursor_position.command_position)
+                else {
+                    return;
+                };
+                match current_command {
+                    Command::Attack => {
+                        self.battle_state = BattleState::AttackEnemySelect {
+                            blink_timer: BlinkTimer::start(),
+                        }
+                    }
+                    Command::Magic | Command::Flee => {}
+                }
+            }
+            GameInput::Left | GameInput::Right | GameInput::Cancel => {}
         }
         if previous_cursor_position != self.cursor_position.command_position {
             self.battle_state = BattleState::CommandSelect {
+                blink_timer: BlinkTimer::start(),
+            };
+        }
+    }
+
+    fn handle_enemy_select_input(&mut self, input: GameInput) {
+        let previous_cursor_position = self.cursor_position.enemy_group_position;
+        let groups = self.enemy_groups();
+        debug_assert!(groups.len() >= 1);
+        match input {
+            GameInput::Up => {
+                self.cursor_position.enemy_group_position =
+                    self.cursor_position.enemy_group_position.saturating_sub(1)
+            }
+            GameInput::Down => {
+                self.cursor_position.enemy_group_position =
+                    (self.cursor_position.enemy_group_position + 1).min(groups.len() - 1)
+            }
+            GameInput::Confirm => {
+                let Some(group) = groups.get(self.cursor_position.enemy_group_position) else {
+                    return;
+                };
+                // 敵選択後どうするかはまだ決めていない
+            }
+            GameInput::Cancel => {
+                self.battle_state = BattleState::CommandSelect {
+                    blink_timer: BlinkTimer::start(),
+                };
+            }
+            GameInput::Left | GameInput::Right => {}
+        }
+        if previous_cursor_position != self.cursor_position.enemy_group_position {
+            self.battle_state = BattleState::AttackEnemySelect {
                 blink_timer: BlinkTimer::start(),
             };
         }
@@ -125,6 +191,8 @@ struct Player {
 enum BattleState {
     // コマンド選択
     CommandSelect { blink_timer: BlinkTimer },
+    // こうげきの敵選択
+    AttackEnemySelect { blink_timer: BlinkTimer },
 }
 
 enum Command {
@@ -187,6 +255,7 @@ impl Input {
 #[derive(Default)]
 struct CursorPosition {
     command_position: usize,
+    enemy_group_position: usize,
 }
 
 struct BlinkTimer {
@@ -297,5 +366,31 @@ mod tests {
         app.cursor_position.command_position = last;
         app.handle_input(Some(Input::Game(GameInput::Down)));
         assert_eq!(app.cursor_position.command_position, last);
+    }
+
+    #[test]
+    fn confirm_attack_moves_to_enemy_select() {
+        let mut app = App::default();
+        // 初期位置は先頭の「たたかう」
+        app.handle_input(Some(Input::Game(GameInput::Confirm)));
+        assert!(matches!(
+            app.battle_state,
+            BattleState::AttackEnemySelect { .. }
+        ));
+    }
+
+    #[test]
+    fn cancel_in_enemy_select_returns_to_command_select() {
+        let mut app = App {
+            battle_state: BattleState::AttackEnemySelect {
+                blink_timer: BlinkTimer::start(),
+            },
+            ..App::default()
+        };
+        app.handle_input(Some(Input::Game(GameInput::Cancel)));
+        assert!(matches!(
+            app.battle_state,
+            BattleState::CommandSelect { .. }
+        ));
     }
 }

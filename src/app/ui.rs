@@ -1,7 +1,4 @@
-use super::{
-    App, BattleState, Command,
-    enemies::{Enemy, EnemyType},
-};
+use super::{App, BattleState, Command, enemies::Enemy};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::{Color, Style};
@@ -111,6 +108,7 @@ impl App {
         Paragraph::new(commands).render(command_inner, buf);
         let is_cursor_visible = match &self.battle_state {
             BattleState::CommandSelect { blink_timer } => blink_timer.is_on(),
+            BattleState::AttackEnemySelect { .. } => true,
         };
         if is_cursor_visible
             && let Some(cursor_row) = command_inner
@@ -120,13 +118,7 @@ impl App {
             Line::from("▶").render(cursor_row, buf)
         }
 
-        let mut groups: Vec<(EnemyType, u16)> = Vec::new();
-        for enemy in &self.enemies {
-            match groups.iter_mut().find(|(t, _)| *t == enemy.enemy_type) {
-                Some((_, count)) => *count += 1,
-                None => groups.push((enemy.enemy_type, 1)),
-            }
-        }
+        let groups = self.enemy_groups();
 
         let enemy_list_area = Rect {
             // 元の確保した高さより大きくならないようにする
@@ -141,12 +133,13 @@ impl App {
         enemy_list.render(enemy_list_area, buf);
 
         let diff = u32::from('０') - u32::from('0');
-        for (row, (enemy_type, count)) in enemy_inner.rows().zip(groups) {
+        for (row, group) in enemy_inner.rows().zip(groups) {
             // 同じ行に左寄せと右寄せで重ねて描く
-            Line::from(format!("  {name}", name = enemy_type.data().name))
+            Line::from(format!("  {name}", name = group.enemy_type.data().name))
                 .left_aligned()
                 .render(row, buf);
-            let count = count
+            let count = group
+                .count
                 .to_string()
                 .chars()
                 .map(|c| char::from_u32(u32::from(c) + diff).expect("０〜９の範囲に必ず収まる"))
@@ -154,6 +147,18 @@ impl App {
             Line::from(format!("ー　{count}ひき"))
                 .right_aligned()
                 .render(row, buf);
+        }
+
+        let is_cursor_visible = match &self.battle_state {
+            BattleState::CommandSelect { .. } => false,
+            BattleState::AttackEnemySelect { blink_timer } => blink_timer.is_on(),
+        };
+        if is_cursor_visible
+            && let Some(cursor_row) = enemy_inner
+                .rows()
+                .nth(self.cursor_position.enemy_group_position)
+        {
+            Line::from("▶").render(cursor_row, buf)
         }
     }
 }
