@@ -136,7 +136,7 @@ impl App {
     fn handle_enemy_select_input(&mut self, input: GameInput) {
         let previous_cursor_position = self.cursor_position.enemy_group_position;
         let groups = self.enemy_groups();
-        debug_assert!(groups.len() >= 1);
+        debug_assert!(!groups.is_empty(), "敵選択時、必ず１グループ以上存在する");
         match input {
             GameInput::Up => {
                 self.cursor_position.enemy_group_position =
