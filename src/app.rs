@@ -95,6 +95,7 @@ impl App {
             Input::Game(game_input) => match self.battle_state {
                 BattleState::CommandSelect { .. } => self.handle_command_select_input(game_input),
                 BattleState::AttackEnemySelect { .. } => self.handle_enemy_select_input(game_input),
+                BattleState::DisplayMessage { .. } => {}
             },
         }
     }
@@ -188,11 +189,25 @@ struct Player {
     vitals: Vitals,
 }
 
+enum BattleMessage {
+    Message(String),
+    LineBreak,
+}
+
 enum BattleState {
     // コマンド選択
-    CommandSelect { blink_timer: BlinkTimer },
+    CommandSelect {
+        blink_timer: BlinkTimer,
+    },
     // こうげきの敵選択
-    AttackEnemySelect { blink_timer: BlinkTimer },
+    AttackEnemySelect {
+        blink_timer: BlinkTimer,
+    },
+    // 戦闘メッセージ表示
+    DisplayMessage {
+        message: Vec<BattleMessage>,
+        blink_timer: BlinkTimer,
+    },
 }
 
 enum Command {
