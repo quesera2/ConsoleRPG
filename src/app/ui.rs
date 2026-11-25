@@ -42,8 +42,11 @@ impl Widget for &App {
                     buf,
                 );
             }
-            BattleState::DisplayMessage { .. } => {
-                render_message(&["dummy".to_string()], false, bottom_area, buf);
+            BattleState::DisplayMessage {
+                message,
+                blink_timer,
+            } => {
+                render_message(message, blink_timer.is_on(), bottom_area, buf);
             }
         }
     }
@@ -182,9 +185,10 @@ fn render_enemy_list(
 }
 
 fn render_message(lines: &[String], show_next: bool, area: Rect, buf: &mut Buffer) {
+    let area = area.inner(Margin::new(4, 0));
     let text: Vec<Line> = lines.iter().map(|line| Line::from(line.as_str())).collect();
     Paragraph::new(text)
-        .block(Block::bordered().padding(Padding::horizontal(4)))
+        .block(Block::bordered().padding(Padding::horizontal(2)))
         .render(area, buf);
 
     // ▼は本文と重ならないように、右側の余白の最下行に描く

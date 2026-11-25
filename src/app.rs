@@ -95,7 +95,9 @@ impl App {
             Input::Game(game_input) => match self.battle_state {
                 BattleState::CommandSelect { .. } => self.handle_command_select_input(game_input),
                 BattleState::AttackEnemySelect { .. } => self.handle_enemy_select_input(game_input),
-                BattleState::DisplayMessage { .. } => {}
+                BattleState::DisplayMessage { .. } => {
+                    self.handle_command_display_message(game_input)
+                }
             },
         }
     }
@@ -148,10 +150,18 @@ impl App {
                     (self.cursor_position.enemy_group_position + 1).min(groups.len() - 1)
             }
             GameInput::Confirm => {
-                let Some(group) = groups.get(self.cursor_position.enemy_group_position) else {
+                let Some(_) = groups.get(self.cursor_position.enemy_group_position) else {
                     return;
                 };
-                // 敵選択後どうするかはまだ決めていない
+                // TODO: ダミーメッセージを入れる
+                self.battle_state = BattleState::DisplayMessage {
+                    message: vec![
+                        "ゆうしゃのこうげき！".to_string(),
+                        "スライムＡに5のダメージを与えた！".to_string(),
+                    ],
+                    blink_timer: BlinkTimer::start(),
+                };
+                return;
             }
             GameInput::Cancel => {
                 self.battle_state = BattleState::CommandSelect {
@@ -164,6 +174,22 @@ impl App {
             self.battle_state = BattleState::AttackEnemySelect {
                 blink_timer: BlinkTimer::start(),
             };
+        }
+    }
+
+    fn handle_command_display_message(&mut self, input: GameInput) {
+        match input {
+            GameInput::Confirm => {
+                self.cursor_position.reset();
+                self.battle_state = BattleState::CommandSelect {
+                    blink_timer: BlinkTimer::start(),
+                };
+            }
+            GameInput::Up
+            | GameInput::Down
+            | GameInput::Left
+            | GameInput::Right
+            | GameInput::Cancel => {}
         }
     }
 }
@@ -205,7 +231,7 @@ enum BattleState {
     },
     // 戦闘メッセージ表示
     DisplayMessage {
-        message: Vec<BattleMessage>,
+        message: Vec<String>,
         blink_timer: BlinkTimer,
     },
 }
@@ -271,6 +297,13 @@ impl Input {
 struct CursorPosition {
     command_position: usize,
     enemy_group_position: usize,
+}
+
+impl CursorPosition {
+    fn reset(&mut self) {
+        self.command_position = 0;
+        self.enemy_group_position = 0;
+    }
 }
 
 struct BlinkTimer {
