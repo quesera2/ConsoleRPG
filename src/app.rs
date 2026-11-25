@@ -441,4 +441,53 @@ mod tests {
             BattleState::CommandSelect { .. }
         ));
     }
+
+    #[test]
+    fn confirm_in_enemy_select_moves_to_display_message() {
+        let mut app = App {
+            battle_state: BattleState::AttackEnemySelect {
+                blink_timer: BlinkTimer::start(),
+            },
+            ..App::default()
+        };
+        app.handle_input(Some(Input::Game(GameInput::Confirm)));
+        assert!(matches!(
+            app.battle_state,
+            BattleState::DisplayMessage { .. }
+        ));
+    }
+
+    #[test]
+    fn confirm_in_display_message_returns_to_command_select() {
+        let mut app = App {
+            battle_state: BattleState::DisplayMessage {
+                message: vec!["メッセージ".to_string()],
+                blink_timer: BlinkTimer::start(),
+            },
+            ..App::default()
+        };
+        app.handle_input(Some(Input::Game(GameInput::Confirm)));
+        assert!(matches!(
+            app.battle_state,
+            BattleState::CommandSelect { .. }
+        ));
+    }
+
+    #[test]
+    fn confirm_in_display_message_resets_cursor_position() {
+        let mut app = App {
+            battle_state: BattleState::DisplayMessage {
+                message: vec!["メッセージ".to_string()],
+                blink_timer: BlinkTimer::start(),
+            },
+            cursor_position: CursorPosition {
+                command_position: 1,
+                enemy_group_position: 1,
+            },
+            ..App::default()
+        };
+        app.handle_input(Some(Input::Game(GameInput::Confirm)));
+        assert_eq!(app.cursor_position.command_position, 0);
+        assert_eq!(app.cursor_position.enemy_group_position, 0);
+    }
 }
