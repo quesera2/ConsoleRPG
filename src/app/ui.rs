@@ -43,10 +43,17 @@ impl Widget for &App {
                 );
             }
             BattleState::DisplayMessage {
-                message,
+                messages,
+                show_next,
                 blink_timer,
+                ..
             } => {
-                render_message(message, blink_timer.is_on(), bottom_area, buf);
+                render_message(
+                    messages,
+                    *show_next && blink_timer.is_on(),
+                    bottom_area,
+                    buf,
+                );
             }
         }
     }

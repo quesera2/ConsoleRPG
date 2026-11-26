@@ -4,6 +4,7 @@ mod ui;
 use crossterm::event::{self, KeyCode, KeyEvent, KeyModifiers};
 use enemies::{Enemy, EnemyGroup, EnemyType};
 use ratatui::DefaultTerminal;
+use std::collections::VecDeque;
 use std::io;
 use std::time::{Duration, Instant};
 
@@ -11,6 +12,9 @@ const TICK_RATE: u64 = 30;
 const TICK_INTERVAL: Duration = Duration::from_millis(1000 / TICK_RATE);
 
 const BLINK_PERIOD: u128 = 666;
+
+const INITIAL_MESSAGE_INTERVAL: Duration = Duration::from_millis(200);
+const MESSAGE_INTERVAL: Duration = Duration::from_millis(400);
 
 pub struct App {
     player: Player,
@@ -49,11 +53,48 @@ impl Default for App {
 impl App {
     pub fn run(&mut self, terminal: &mut DefaultTerminal) -> io::Result<()> {
         while !self.should_quit {
+            self.update(Instant::now());
             self.draw(terminal)?;
             let input = Self::handle_events()?;
             self.handle_input(input);
         }
         Ok(())
+    }
+
+    fn update(&mut self, now: Instant) {
+        match &mut self.battle_state {
+            BattleState::CommandSelect { .. } | BattleState::AttackEnemySelect { .. } => {}
+            BattleState::DisplayMessage {
+                pending_events,
+                messages,
+                last_shown_at,
+                show_next,
+                blink_timer,
+            } => {
+                let wait_time = if messages.is_empty() {
+                    INITIAL_MESSAGE_INTERVAL
+                } else {
+                    MESSAGE_INTERVAL
+                };
+                if *show_next || now.duration_since(*last_shown_at) <= wait_time {
+                    return;
+                }
+                match pending_events.pop_front() {
+                    Some(BattleEvent::Message(text)) => {
+                        messages.push(text);
+                        *last_shown_at = now;
+                    }
+                    Some(BattleEvent::PageBreak) => {
+                        messages.clear();
+                        *last_shown_at = now;
+                    }
+                    None => {
+                        *show_next = true;
+                        *blink_timer = BlinkTimer::start();
+                    }
+                }
+            }
+        }
     }
 
     fn draw(&self, terminal: &mut DefaultTerminal) -> io::Result<()> {
@@ -95,8 +136,8 @@ impl App {
             Input::Game(game_input) => match self.battle_state {
                 BattleState::CommandSelect { .. } => self.handle_command_select_input(game_input),
                 BattleState::AttackEnemySelect { .. } => self.handle_enemy_select_input(game_input),
-                BattleState::DisplayMessage { .. } => {
-                    self.handle_command_display_message(game_input)
+                BattleState::DisplayMessage { show_next, .. } => {
+                    self.handle_command_display_message(show_next, game_input)
                 }
             },
         }
@@ -153,12 +194,15 @@ impl App {
                 let Some(_) = groups.get(self.cursor_position.enemy_group_position) else {
                     return;
                 };
-                // TODO: ダミーメッセージを入れる
+                // TODO: ダミーメッセージを入れており、後から戦闘処理に差し替える
                 self.battle_state = BattleState::DisplayMessage {
-                    message: vec![
-                        "ゆうしゃのこうげき！".to_string(),
-                        "スライムＡに5のダメージを与えた！".to_string(),
-                    ],
+                    pending_events: VecDeque::from([
+                        BattleEvent::Message("ゆうしゃのこうげき！".to_string()),
+                        BattleEvent::Message("スライムＡに5のダメージを与えた！".to_string()),
+                    ]),
+                    messages: Vec::new(),
+                    last_shown_at: Instant::now(),
+                    show_next: false,
                     blink_timer: BlinkTimer::start(),
                 };
                 return;
@@ -177,13 +221,15 @@ impl App {
         }
     }
 
-    fn handle_command_display_message(&mut self, input: GameInput) {
+    fn handle_command_display_message(&mut self, show_next: bool, input: GameInput) {
         match input {
             GameInput::Confirm => {
-                self.cursor_position.reset();
-                self.battle_state = BattleState::CommandSelect {
-                    blink_timer: BlinkTimer::start(),
-                };
+                if show_next {
+                    self.cursor_position.reset();
+                    self.battle_state = BattleState::CommandSelect {
+                        blink_timer: BlinkTimer::start(),
+                    };
+                }
             }
             GameInput::Up
             | GameInput::Down
@@ -215,23 +261,29 @@ struct Player {
     vitals: Vitals,
 }
 
-enum BattleMessage {
+enum BattleEvent {
+    /// 戦闘メッセージ
     Message(String),
-    LineBreak,
+    /// メッセージをクリア
+    PageBreak,
 }
 
 enum BattleState {
-    // コマンド選択
-    CommandSelect {
-        blink_timer: BlinkTimer,
-    },
-    // こうげきの敵選択
-    AttackEnemySelect {
-        blink_timer: BlinkTimer,
-    },
-    // 戦闘メッセージ表示
+    /// コマンド選択
+    CommandSelect { blink_timer: BlinkTimer },
+    /// こうげきの敵選択
+    AttackEnemySelect { blink_timer: BlinkTimer },
+    /// 戦闘メッセージ表示
     DisplayMessage {
-        message: Vec<String>,
+        /// 未処理イベント
+        pending_events: VecDeque<BattleEvent>,
+        /// 表示中メッセージ
+        messages: Vec<String>,
+        /// 最後に表示を更新した時間
+        last_shown_at: Instant,
+        /// 次へカーソルを表示するかどうか
+        show_next: bool,
+        /// 次へカーソルの点滅用
         blink_timer: BlinkTimer,
     },
 }
@@ -461,8 +513,11 @@ mod tests {
     fn confirm_in_display_message_returns_to_command_select() {
         let mut app = App {
             battle_state: BattleState::DisplayMessage {
-                message: vec!["メッセージ".to_string()],
+                pending_events: VecDeque::default(),
+                messages: vec!["メッセージ".to_string()],
                 blink_timer: BlinkTimer::start(),
+                show_next: true,
+                last_shown_at: Instant::now(),
             },
             ..App::default()
         };
@@ -477,8 +532,11 @@ mod tests {
     fn confirm_in_display_message_resets_cursor_position() {
         let mut app = App {
             battle_state: BattleState::DisplayMessage {
-                message: vec!["メッセージ".to_string()],
+                pending_events: VecDeque::default(),
+                messages: vec!["メッセージ".to_string()],
                 blink_timer: BlinkTimer::start(),
+                show_next: true,
+                last_shown_at: Instant::now(),
             },
             cursor_position: CursorPosition {
                 command_position: 1,
