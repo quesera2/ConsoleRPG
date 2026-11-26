@@ -548,4 +548,110 @@ mod tests {
         assert_eq!(app.cursor_position.command_position, 0);
         assert_eq!(app.cursor_position.enemy_group_position, 0);
     }
+
+    #[test]
+    fn confirm_before_all_messages_shown_is_ignored() {
+        let mut app = App {
+            battle_state: BattleState::DisplayMessage {
+                pending_events: VecDeque::from([BattleEvent::Message("つぎ".to_string())]),
+                messages: vec!["メッセージ".to_string()],
+                blink_timer: BlinkTimer::start(),
+                show_next: false,
+                last_shown_at: Instant::now(),
+            },
+            ..App::default()
+        };
+        app.handle_input(Some(Input::Game(GameInput::Confirm)));
+        assert!(matches!(
+            app.battle_state,
+            BattleState::DisplayMessage { .. }
+        ));
+    }
+
+    /// メッセージ表示中の App を作るヘルパー。基準時刻 `base` を返り値でも返す
+    fn display_message_app(pending: Vec<BattleEvent>, messages: Vec<&str>) -> (App, Instant) {
+        let base = Instant::now();
+        let app = App {
+            battle_state: BattleState::DisplayMessage {
+                pending_events: VecDeque::from(pending),
+                messages: messages.into_iter().map(String::from).collect(),
+                blink_timer: BlinkTimer::start(),
+                show_next: false,
+                last_shown_at: base,
+            },
+            ..App::default()
+        };
+        (app, base)
+    }
+
+    /// 表示済みの行と ▼ を表示するかを取り出す
+    fn shown(app: &App) -> (Vec<String>, bool) {
+        match &app.battle_state {
+            BattleState::DisplayMessage {
+                messages,
+                show_next,
+                ..
+            } => (messages.clone(), *show_next),
+            _ => panic!("DisplayMessage ではない"),
+        }
+    }
+
+    const ONE_MS: Duration = Duration::from_millis(1);
+
+    #[test]
+    fn update_waits_initial_interval_before_first_line() {
+        let (mut app, base) =
+            display_message_app(vec![BattleEvent::Message("1行目".to_string())], vec![]);
+
+        app.update(base + INITIAL_MESSAGE_INTERVAL);
+        assert_eq!(shown(&app).0, Vec::<String>::new());
+
+        app.update(base + INITIAL_MESSAGE_INTERVAL + ONE_MS);
+        assert_eq!(shown(&app).0, vec!["1行目"]);
+    }
+
+    #[test]
+    fn update_waits_message_interval_after_first_line() {
+        let (mut app, base) = display_message_app(
+            vec![BattleEvent::Message("2行目".to_string())],
+            vec!["1行目"],
+        );
+
+        // 1行目用の短い待ち時間では、まだ出ない
+        app.update(base + INITIAL_MESSAGE_INTERVAL + ONE_MS);
+        assert_eq!(shown(&app).0, vec!["1行目"]);
+
+        app.update(base + MESSAGE_INTERVAL + ONE_MS);
+        assert_eq!(shown(&app).0, vec!["1行目", "2行目"]);
+    }
+
+    #[test]
+    fn update_shows_next_marker_after_all_lines() {
+        let (mut app, base) = display_message_app(vec![], vec!["1行目"]);
+
+        app.update(base + MESSAGE_INTERVAL);
+        assert!(!shown(&app).1);
+
+        app.update(base + MESSAGE_INTERVAL + ONE_MS);
+        assert!(shown(&app).1);
+    }
+
+    #[test]
+    fn update_clears_lines_on_page_break() {
+        let (mut app, base) = display_message_app(
+            vec![
+                BattleEvent::PageBreak,
+                BattleEvent::Message("次のページ".to_string()),
+            ],
+            vec!["1行目", "2行目"],
+        );
+
+        let cleared_at = base + MESSAGE_INTERVAL + ONE_MS;
+        app.update(cleared_at);
+        assert_eq!(shown(&app).0, Vec::<String>::new());
+
+        // 改ページ後の1行目は、改ページの時刻から1行目用の待ち時間で出る
+        app.update(cleared_at + INITIAL_MESSAGE_INTERVAL + ONE_MS);
+        assert_eq!(shown(&app).0, vec!["次のページ"]);
+    }
 }
