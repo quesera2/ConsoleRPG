@@ -1,5 +1,6 @@
 mod enemies;
 mod input;
+mod timer;
 mod ui;
 
 use crossterm::event::{self};
@@ -9,11 +10,10 @@ use ratatui::DefaultTerminal;
 use std::collections::VecDeque;
 use std::io;
 use std::time::{Duration, Instant};
+use timer::BlinkTimer;
 
 const TICK_RATE: u64 = 30;
 const TICK_INTERVAL: Duration = Duration::from_millis(1000 / TICK_RATE);
-
-const BLINK_PERIOD: u128 = 666;
 
 const INITIAL_MESSAGE_INTERVAL: Duration = Duration::from_millis(200);
 const MESSAGE_INTERVAL: Duration = Duration::from_millis(400);
@@ -318,22 +318,6 @@ impl CursorPosition {
     fn reset(&mut self) {
         self.command_position = 0;
         self.enemy_group_position = 0;
-    }
-}
-
-struct BlinkTimer {
-    started_at: Instant,
-}
-
-impl BlinkTimer {
-    fn start() -> Self {
-        Self {
-            started_at: Instant::now(),
-        }
-    }
-
-    fn is_on(&self) -> bool {
-        self.started_at.elapsed().as_millis() % BLINK_PERIOD < BLINK_PERIOD / 2
     }
 }
 
