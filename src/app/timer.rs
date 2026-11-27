@@ -2,7 +2,7 @@ use std::time::Instant;
 
 const BLINK_PERIOD: u128 = 666;
 
-pub struct BlinkTimer {
+pub(super) struct BlinkTimer {
     started_at: Instant,
 }
 

@@ -1,4 +1,7 @@
-use super::{App, BattleState, Command, enemies::Enemy, enemies::EnemyGroup};
+use super::{
+    App, BattleState, Command,
+    enemies::{Enemy, EnemyGroup},
+};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
 use ratatui::style::{Color, Style};

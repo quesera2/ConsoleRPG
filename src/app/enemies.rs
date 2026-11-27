@@ -1,4 +1,4 @@
-use super::{Pool, Vitals};
+use super::status::{Pool, Vitals};
 use ratatui::text::Line;
 
 // 敵の見た目。各行の表示幅をそろえておく

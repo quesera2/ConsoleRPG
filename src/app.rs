@@ -1,12 +1,16 @@
 mod enemies;
 mod input;
+mod player;
+mod status;
 mod timer;
 mod ui;
 
-use crossterm::event::{self};
+use crossterm::event;
 use enemies::{Enemy, EnemyGroup, EnemyType};
 use input::{GameInput, Input, SystemInput};
+use player::Player;
 use ratatui::DefaultTerminal;
+use status::{Pool, Vitals};
 use std::collections::VecDeque;
 use std::io;
 use std::time::{Duration, Instant};
@@ -240,27 +244,6 @@ impl App {
             | GameInput::Cancel => {}
         }
     }
-}
-
-struct Pool {
-    current: i32,
-    max: i32,
-}
-
-impl Pool {
-    fn full(max: i32) -> Self {
-        Self { current: max, max }
-    }
-}
-
-struct Vitals {
-    hp: Pool,
-    mp: Pool,
-}
-
-struct Player {
-    name: String,
-    vitals: Vitals,
 }
 
 enum BattleEvent {
